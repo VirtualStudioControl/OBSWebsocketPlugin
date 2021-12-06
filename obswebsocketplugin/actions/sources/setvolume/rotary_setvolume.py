@@ -1,10 +1,10 @@
 from obswebsocketplugin.actions.sources.setvolume import setvolume
 from obswebsocketplugin.actions.sources.setvolume.setvolume import *
 from obswebsocketplugin.common.uitools import setAccountComboBox
-from virtualstudio.common.structs.action.fader_action import FaderAction
+from virtualstudio.common.structs.action.rotary_encoder_action import RotaryEncoderAction
 
 
-class RotarySetVolumeAction(FaderAction):
+class RotarySetVolumeAction(RotaryEncoderAction):
 
     #region handlers
 

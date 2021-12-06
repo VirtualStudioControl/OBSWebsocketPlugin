@@ -67,6 +67,10 @@ class ImageButtonTransitionAction(ImageButtonAction):
         self.setGUIParameter(TRANSITIONNAME_COMBO, "itemTexts", transitionNames)
 
     def setCurrentTransition(self, msg):
+        if msg['status'] != 'ok':
+            self.logger.error("Failed to set transition !" + str(msg))
+            return
+
         if msg['name'] == self.getGUIParameter(TRANSITIONNAME_COMBO, "currentText"):
             self.setState(STATE_ACTIVE)
         else:

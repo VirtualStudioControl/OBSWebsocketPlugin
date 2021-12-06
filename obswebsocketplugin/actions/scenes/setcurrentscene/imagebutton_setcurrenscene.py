@@ -70,6 +70,9 @@ class ImageButtonSetCurrentSceneAction(ImageButtonAction):
         self.setGUIParameter(SCENENAME_COMBO, "itemTexts", sceneNames)
 
     def setCurrentSceneState(self, msg):
+        if msg['status'] != 'ok':
+            self.logger.error("Failed to retrieve scene state !" + str(msg))
+            return
         if msg['name'] == self.getGUIParameter(SCENENAME_COMBO, "currentText"):
             self.setState(self.getState() | STATE_PROGRAM)
         else:
