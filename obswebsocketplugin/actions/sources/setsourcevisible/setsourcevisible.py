@@ -38,6 +38,7 @@ def onAppear(action):
     if index is not None:
         action.account_id = action.uuid_map[index]
         initAccount(action, action.account_id)
+        updateState(action)
 
 
 def initAccount(action, account_id):

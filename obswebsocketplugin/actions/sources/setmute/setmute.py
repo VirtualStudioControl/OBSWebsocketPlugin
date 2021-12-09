@@ -65,4 +65,6 @@ def onActionExecute(action):
     index = action.getGUIParameter(ACCOUNT_COMBO, "currentIndex")
     if index is not None:
         account_id = action.uuid_map[index]
-        connection_manager.sendMessage(account_id, requests.setMute(action.getGUIParameter(SOURCENAME_COMBO, "currentText"), not action.isMute))
+        connection_manager.sendMessage(account_id,
+                                       requests.setMute(action.getGUIParameter(SOURCENAME_COMBO, "currentText"),
+                                                        not action.isMute))
