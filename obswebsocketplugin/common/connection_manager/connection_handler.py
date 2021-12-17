@@ -24,6 +24,8 @@ class ConnectionHandler(Thread):
         self.eventQueue = []
         self.logger = logengine.getLogger()
 
+        self.isAuthenticated = False
+
         self.isInStudioMode = False
 
     def isConnected(self) -> bool:
@@ -39,6 +41,7 @@ class ConnectionHandler(Thread):
     async def connectToHost(self):
         rcvLoop = None
         sendLoop = None
+        self.isAuthenticated = False
         with self.clientLock:
             self.client = OBSWebsocketClient(self.generateServerAddress())
             try:
@@ -57,6 +60,7 @@ class ConnectionHandler(Thread):
         if rcvLoop is not None or sendLoop is not None:
             await asyncio.gather(rcvLoop, sendLoop, return_exceptions=True)
         await self.client.close()
+        self.isAuthenticated = False
         self.logger.debug("Connection Closed !")
 
     def requestClose(self):
@@ -64,16 +68,18 @@ class ConnectionHandler(Thread):
 
     def onAuthenticated(self, msg):
         if msg['status'] == 'ok':
-
             with self.clientLock:
                 self.client.addEventListener(events.EVENT_STUDIOMODESWITCHED, Callback(self.studioModeStatusChanged))
                 self.client.sendMessageJson(requests.getStudioModeStatus(), Callback(self.setStudioModeStatus))
                 for args in self.eventQueue:
                     self.client.addEventListener(*args)
+                self.isAuthenticated = True
                 for args in self.sendQueue:
                     self.client.sendMessageJson(*args)
         else:
             self.logger.error("Authentification Failed !")
+            self.isAuthenticated = False
+            self.requestClose()
         self.sendQueue.clear()
         self.eventQueue.clear()
 
@@ -84,7 +90,7 @@ class ConnectionHandler(Thread):
         self.isInStudioMode = msg['new-state']
 
     def sendMessageJson(self, data, callback=None):
-        if not self.isConnected():
+        if not (self.isConnected() and self.isAuthenticated):
             self.sendQueue.append((data, callback))
             return
         self._sendMsgInternal(data, callback)
@@ -94,7 +100,7 @@ class ConnectionHandler(Thread):
             self.client.sendMessageJson(data, callback)
 
     def addEventListener(self, event, listener):
-        if not self.isConnected():
+        if not (self.isConnected() and self.isAuthenticated):
             self.eventQueue.append((event, listener))
             return
         with self.clientLock:
