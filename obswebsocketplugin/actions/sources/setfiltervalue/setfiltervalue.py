@@ -308,6 +308,9 @@ def mapValueToHardware(action, value) -> int:
         logger.warning("Attempting use of non-Number maximum value: {}".format(maximum))
         return 0
 
+    if minimum == maximum:
+        return minimum
+
     norm_val = float(value-minimum)/float(maximum - minimum)
 
     return max(min(int(norm_val * 127), 127), 0)

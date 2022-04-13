@@ -71,7 +71,7 @@ def deinitAccount(action, account_id):
 
 def onParamsChanged(action, parameters: dict):
     index = action.getGUIParameter(ACCOUNT_COMBO, "currentIndex")
-    if index is not None:
+    if index is not None and index < len(action.uuid_map):
         action.account_id = action.uuid_map[index]
         connection_manager.sendMessage(action.account_id, requests.getSourcesList(),
                                        Callback(action.updateSources,
