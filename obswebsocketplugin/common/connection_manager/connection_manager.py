@@ -51,6 +51,7 @@ def removeEventListener(account_uuid, event, listener):
 
     CONNECTIONS[account_uuid].removeEventListener(event, listener)
 
+
 def isInStudioMode(account_uuid):
     if account_uuid in CONNECTIONS:
         return CONNECTIONS[account_uuid].isInStudioMode

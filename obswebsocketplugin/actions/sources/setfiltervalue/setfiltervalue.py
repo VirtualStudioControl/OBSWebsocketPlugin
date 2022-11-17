@@ -269,10 +269,10 @@ def mapHardwareToValue(action, value) -> float:
     norm_val = float(value)/127.0
 
     if minimum is None:
-        logger.warning("Minimum is None")
+        logger.warning("Minimum is None, using 0 as value")
         minimum = 0
     if maximum is None:
-        logger.warning("Maximum is None")
+        logger.warning("Maximum is None, , using 127 as value")
         maximum = 127
 
     if type(minimum) not in [float, int]:
@@ -291,13 +291,13 @@ def mapValueToHardware(action, value) -> int:
     maximum = action.getGUIParameter(getWidgetName(BASE_MAXIMUM_VALUE, action.control_page, action.value_type), "value")
 
     if minimum is None:
-        logger.warning("Minimum is None")
+        logger.warning("Minimum is None, using 0 as value")
         minimum = 0
     if maximum is None:
-        logger.warning("Maximum is None")
+        logger.warning("Maximum is None, using 127 as value")
         maximum = 127
     if value is None:
-        logger.warning("Value is None")
+        logger.warning("Value is None, using 0 as value")
         value = 0
 
     if type(minimum) not in [float, int]:

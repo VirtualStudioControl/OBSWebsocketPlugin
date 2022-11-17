@@ -1,5 +1,5 @@
-from libwsctrl.protocols.obs_ws4 import obs_websocket_protocol as requests
-from libwsctrl.protocols.obs_ws4.constants import hotkeys
+from libwsctrl.protocols.obs_ws5 import requests
+from libwsctrl.protocols.obs_ws5.constants import hotkeys
 from obswebsocketplugin.common.connection_manager import connection_manager
 from obswebsocketplugin.common.uitools import setAccountComboBox, ensureAccountComboBox
 from virtualstudio.common.account_manager import account_manager
@@ -100,8 +100,8 @@ class ImageButtonTriggerHotkey(ImageButtonAction):
                     'cmd': self.getGUIParameter(CHECK_MOD_COMMAND, "checked")
                 }
                 logger.info("Sending Shortcut: {} with mods {}".format(shortcut, mods))
-                logger.info("Trigger Hotkey Request: {}".format(requests.triggerHotkeyBySequence(shortcut, mods)))
-                connection_manager.sendMessage(self.account_id, requests.triggerHotkeyBySequence(shortcut, mods))
+                logger.info("Trigger Hotkey Request: {}".format(requests.triggerHotkeyByKeySequence(shortcut, mods)))
+                connection_manager.sendMessage(self.account_id, requests.triggerHotkeyByKeySequence(shortcut, mods))
             elif typeSelect == 1:
                 connection_manager.sendMessage(self.account_id, requests.triggerHotkeyByName(
                     self.getGUIParameter(SHORTCUT_NAME_EDIT, "currentText")))

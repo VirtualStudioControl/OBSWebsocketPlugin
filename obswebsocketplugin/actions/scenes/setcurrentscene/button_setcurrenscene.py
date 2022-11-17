@@ -1,4 +1,4 @@
-from libwsctrl.protocols.obs_ws4 import obs_websocket_protocol as requests
+from libwsctrl.protocols.obs_ws5 import requests
 from libwsctrl.structs.callback import Callback
 from obswebsocketplugin.common.connection_manager import connection_manager
 from obswebsocketplugin.common.uitools import ensureAccountComboBox, setAccountComboBox

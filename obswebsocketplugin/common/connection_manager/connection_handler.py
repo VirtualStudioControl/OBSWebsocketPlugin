@@ -2,9 +2,9 @@ import asyncio
 from threading import Thread, Lock
 from typing import Optional
 
-from libwsctrl.net.obs_websocket4_client import OBSWebsocketClient
-from libwsctrl.protocols.obs_ws4 import obs_websocket_events as events
-from libwsctrl.protocols.obs_ws4 import obs_websocket_protocol as requests
+from libwsctrl.net.obs_websocket5_client import OBSWebsocketClient
+from libwsctrl.protocols.obs_ws5 import events
+from libwsctrl.protocols.obs_ws5 import requests
 from libwsctrl.structs.callback import Callback
 from virtualstudio.common.account_manager.account_info import AccountInfo
 
@@ -67,27 +67,27 @@ class ConnectionHandler(Thread):
         self.client.requestClose()
 
     def onAuthenticated(self, msg):
-        if msg['status'] == 'ok':
-            with self.clientLock:
-                self.client.addEventListener(events.EVENT_STUDIOMODESWITCHED, Callback(self.studioModeStatusChanged))
-                self.client.sendMessageJson(requests.getStudioModeStatus(), Callback(self.setStudioModeStatus))
-                for args in self.eventQueue:
-                    self.client.addEventListener(*args)
-                self.isAuthenticated = True
-                for args in self.sendQueue:
-                    self.client.sendMessageJson(*args)
-        else:
-            self.logger.error("Authentification Failed !")
-            self.isAuthenticated = False
-            self.requestClose()
+        #if msg['status'] == 'ok':
+        with self.clientLock:
+            self.client.addEventListener(events.EVENT_STUDIOMODESTATECHANGED, Callback(self.studioModeStatusChanged))
+            self.client.sendMessageJson(requests.getStudioModeEnabled(), Callback(self.setStudioModeStatus))
+            for args in self.eventQueue:
+                self.client.addEventListener(*args)
+            self.isAuthenticated = True
+            for args in self.sendQueue:
+                self.client.sendMessageJson(*args)
+        #else:
+        #    self.logger.error("Authentification Failed !")
+        #    self.isAuthenticated = False
+        #    self.requestClose()
         self.sendQueue.clear()
         self.eventQueue.clear()
 
     def setStudioModeStatus(self, msg):
-        self.isInStudioMode = msg['studio-mode']
+        self.isInStudioMode = msg['d']['responseData']['studioModeEnabled']
 
     def studioModeStatusChanged(self, msg):
-        self.isInStudioMode = msg['new-state']
+        self.isInStudioMode = msg['d']['eventData']['studioModeEnabled']
 
     def sendMessageJson(self, data, callback=None):
         if not (self.isConnected() and self.isAuthenticated):

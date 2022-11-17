@@ -5,6 +5,7 @@ from libwsctrl.structs.callback import Callback
 from obswebsocketplugin.common.connection_manager import connection_manager
 from obswebsocketplugin.common.uitools import ensureAccountComboBox
 from virtualstudio.common.account_manager import account_manager
+from virtualstudio.common.logging import logengine
 
 ACCOUNT_COMBO = "account_combo"
 TRANSITIONNAME_COMBO = "transitionname_combo"
@@ -17,6 +18,7 @@ STUDIOMODE_COMBO = "studiomode_combo"
 STATE_INACTIVE = 0
 STATE_ACTIVE = 1
 
+logger = logengine.getLogger()
 
 def onAppear(action):
     account_manager.registerAccountChangeCallback(action.accountChangedCB)
@@ -55,6 +57,8 @@ def deinitAccount(action, account_id):
 def onParamsChanged(action, parameters: dict):
     index = action.getGUIParameter(ACCOUNT_COMBO, "currentIndex")
     if index is not None:
+        if 0 < index < len(action.uuid_map):
+            logger.error("Index out of bounds: Index {} for List of length {} with contents {}".format(index, len(action.uuid_map), action.uuid_map))
         action.account_id = action.uuid_map[index]
         connection_manager.sendMessage(action.account_id, requests.getTransitionList(),
                                        Callback(action.updateTransitions,

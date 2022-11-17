@@ -5,11 +5,11 @@ from virtualstudio.common.account_manager.account_manager import registerAccount
 
 ROOT_DIRECTORY = str(Path(__file__).resolve().parents[2])
 
-ACCOUNT_TYPE_WEBSOCKET4: str = "OBS Websocket 4.x"
+ACCOUNT_TYPE_WEBSOCKET5: str = "OBS Websocket 5.x"
 
-ACCOUNT_TYPES: List[str] = [ACCOUNT_TYPE_WEBSOCKET4]
+ACCOUNT_TYPES: List[str] = [ACCOUNT_TYPE_WEBSOCKET5]
 
 def initializePlugin():
-    registerAccountType(ACCOUNT_TYPE_WEBSOCKET4, ROOT_DIRECTORY + "/assets/icons/category/obs_ws4.png")
+    registerAccountType(ACCOUNT_TYPE_WEBSOCKET5, ROOT_DIRECTORY + "/assets/icons/category/obs_ws5.png")
 
 initializePlugin()

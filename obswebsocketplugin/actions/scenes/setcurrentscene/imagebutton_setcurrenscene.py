@@ -18,7 +18,7 @@ class ImageButtonSetCurrentSceneAction(ImageButtonAction):
         self.sceneSwitchCB = Callback(self.onSceneChanged)
         self.previewSwitchCB = Callback(self.onScenePreviewChanged)
         self.studioModeChangedCB = Callback(self.onStudioModeChanged)
-
+        self.account_id = None
         self.uuid_map = []
 
     def onAppear(self):
@@ -50,7 +50,7 @@ class ImageButtonSetCurrentSceneAction(ImageButtonAction):
                 setcurrentscene.initAccount(self, self.account_id)
 
     def updateScenes(self, msg, currentSelection: str = ""):
-        if msg['status'] != 'ok':
+        if not checkError(msg):
             self.logger.error("Failed to retrieve scene list !" + str(msg))
             return
 
