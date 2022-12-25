@@ -1,3 +1,4 @@
+from libwsctrl.protocols.obs_ws5.tools.messagetools import checkError, innerData
 from libwsctrl.structs.callback import Callback
 from obswebsocketplugin.actions.sources.setsourcevisible import setsourcevisible
 from obswebsocketplugin.common.uitools import setAccountComboBox
@@ -47,7 +48,7 @@ class ButtonSetSourceVisibility(ButtonAction):
                 setsourcevisible.initAccount(self, self.account_id)
 
     def updateSources(self, msg, currentSelection: str = ""):
-        if msg['status'] != 'ok':
+        if not checkError(msg, self.logger):
             self.logger.error("Failed to retrieve scene list !" + str(msg))
             return
 
@@ -55,9 +56,9 @@ class ButtonSetSourceVisibility(ButtonAction):
         if currentSelection is not None:
             sourceNames.append(currentSelection)
 
-        for source in msg['sources']:
-            if source['name'] not in sourceNames:
-                sourceNames.append(source['name'])
+        for source in innerData(msg)['inputs']:
+            if source['inputName'] not in sourceNames:
+                sourceNames.append(source['inputName'])
 
         if self.getGUIParameter(setsourcevisible.SOURCENAME_COMBO, "currentText") not in sourceNames and len(
                 sourceNames) > 0:
@@ -71,8 +72,9 @@ class ButtonSetSourceVisibility(ButtonAction):
         self.setGUIParameter(setsourcevisible.SOURCENAME_COMBO, "itemTexts", sourceNames)
 
     def onSceneItemVisibilityChanged(self, msg):
-        if msg['item-name'] == self.getGUIParameter(setsourcevisible.SOURCENAME_COMBO, "currentText"):
-            setsourcevisible.updateState(self, newstate=msg['item-visible'])
+        # msg = SceneItemEnableStateChanged
+        setsourcevisible.updateState(self, sceneName=innerData(msg)['sceneName'], itemID=innerData(msg)['sceneItemId'],
+                                     isEnabled=innerData(msg)['sceneItemEnabled'])
 
     def setInvisible(self):
         setsourcevisible.sendStateToOBS(self, render=False)

@@ -1,9 +1,5 @@
-from libwsctrl.protocols.obs_ws4 import obs_websocket_protocol as requests
-from libwsctrl.protocols.obs_ws4 import obs_websocket_events as events
-from libwsctrl.structs.callback import Callback
-from obswebsocketplugin.common.connection_manager import connection_manager
+from libwsctrl.protocols.obs_ws5.tools.messagetools import checkError, innerData
 from obswebsocketplugin.common.uitools import ensureAccountComboBox, setAccountComboBox
-from virtualstudio.common.logging import logengine
 from virtualstudio.common.structs.action.button_action import ButtonAction
 
 from . import transition
@@ -15,7 +11,7 @@ class ButtonTransitionAction(ButtonAction):
 
     def onLoad(self):
         self.transitionChangedCB = Callback(self.onTransitionChanged)
-
+        self.account_id = None
         self.uuid_map = []
 
     def onAppear(self):
@@ -47,7 +43,7 @@ class ButtonTransitionAction(ButtonAction):
                 transition.initAccount(self, self.account_id)
 
     def updateTransitions(self, msg, currentSelection: str = ""):
-        if msg['status'] != 'ok':
+        if not checkError(msg, self.logger):
             self.logger.error("Failed to retrieve transition list !" + str(msg))
             return
 
@@ -55,9 +51,9 @@ class ButtonTransitionAction(ButtonAction):
         if currentSelection is not None:
             transitionNames.append(currentSelection)
 
-        for transition in msg['transitions']:
-            if transition['name'] not in transitionNames:
-                transitionNames.append(transition['name'])
+        for transition in innerData(msg)['transitions']:
+            if transition['transitionName'] not in transitionNames:
+                transitionNames.append(transition['transitionName'])
 
         if self.getGUIParameter(TRANSITIONNAME_COMBO, "currentText") not in transitionNames and len(transitionNames) > 0:
             self.setGUIParameter(TRANSITIONNAME_COMBO, "currentIndex", 0, silent=True)
@@ -67,13 +63,21 @@ class ButtonTransitionAction(ButtonAction):
         self.setGUIParameter(TRANSITIONNAME_COMBO, "itemTexts", transitionNames)
 
     def setCurrentTransition(self, msg):
-        if msg['name'] == self.getGUIParameter(TRANSITIONNAME_COMBO, "currentText"):
+        if not checkError(msg, self.logger):
+            self.logger.error("Failed to set transition !" + str(msg))
+            return
+
+        if innerData(msg)['transitionName'] == self.getGUIParameter(TRANSITIONNAME_COMBO, "currentText"):
             self.setState(STATE_ACTIVE)
         else:
             self.setState(STATE_INACTIVE)
 
     def onTransitionChanged(self, msg):
-        if msg['transition-name'] == self.getGUIParameter(TRANSITIONNAME_COMBO, "currentText"):
+        if not checkError(msg, self.logger):
+            self.logger.error("Failed to set transition !" + str(msg))
+            return
+
+        if innerData(msg)['transitionName'] == self.getGUIParameter(TRANSITIONNAME_COMBO, "currentText"):
             self.setState(STATE_ACTIVE)
         else:
             self.setState(STATE_INACTIVE)

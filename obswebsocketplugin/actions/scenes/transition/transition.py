@@ -1,5 +1,5 @@
-from libwsctrl.protocols.obs_ws4 import obs_websocket_protocol as requests
-from libwsctrl.protocols.obs_ws4 import obs_websocket_events as events
+from libwsctrl.protocols.obs_ws5 import requests
+from libwsctrl.protocols.obs_ws5 import events
 from libwsctrl.structs.callback import Callback
 
 from obswebsocketplugin.common.connection_manager import connection_manager
@@ -30,14 +30,14 @@ def onAppear(action):
 
 
 def initAccount(action, account_id):
-    connection_manager.sendMessage(account_id, requests.getTransitionList(),
+    connection_manager.sendMessage(account_id, requests.getSceneTransitionList(),
                                    Callback(action.updateTransitions,
                                             currentSelection=action.getGUIParameter(TRANSITIONNAME_COMBO, "currentText")))
 
-    connection_manager.addEventListener(account_id, events.EVENT_SWITCHTRANSITION, action.transitionChangedCB)
+    connection_manager.addEventListener(account_id, events.EVENT_CURRENTSCENETRANSITIONCHANGED, action.transitionChangedCB)
     transitionName = action.getGUIParameter(TRANSITIONNAME_COMBO, "currentText")
     if transitionName is not None:
-        connection_manager.sendMessage(account_id, requests.getCurrentTransition(),
+        connection_manager.sendMessage(account_id, requests.getCurrentSceneTransition(),
                                    Callback(action.setCurrentTransition))
 
 
@@ -51,7 +51,7 @@ def onDisappear(action):
 
 
 def deinitAccount(action, account_id):
-    connection_manager.removeEventListener(account_id, events.EVENT_SOURCEVOLUMECHANGED, action.transitionChangedCB)
+    connection_manager.removeEventListener(account_id, events.EVENT_CURRENTSCENETRANSITIONCHANGED, action.transitionChangedCB)
 
 
 def onParamsChanged(action, parameters: dict):
@@ -60,27 +60,27 @@ def onParamsChanged(action, parameters: dict):
         if 0 < index < len(action.uuid_map):
             logger.error("Index out of bounds: Index {} for List of length {} with contents {}".format(index, len(action.uuid_map), action.uuid_map))
         action.account_id = action.uuid_map[index]
-        connection_manager.sendMessage(action.account_id, requests.getTransitionList(),
+        connection_manager.sendMessage(action.account_id, requests.getSceneTransitionList(),
                                        Callback(action.updateTransitions,
                                                 currentSelection=action.getGUIParameter(TRANSITIONNAME_COMBO,
                                                                                         "currentText")))
         transitionName = action.getGUIParameter(TRANSITIONNAME_COMBO, "currentText")
         if transitionName is not None:
-            connection_manager.sendMessage(action.account_id, requests.getCurrentTransition(),
+            connection_manager.sendMessage(action.account_id, requests.getCurrentSceneTransition(),
                                        Callback(action.setCurrentTransition))
 
 
 def setTransition(action, account_id):
     connection_manager.sendMessage(account_id,
-                                   requests.setCurrentTransition(
+                                   requests.setCurrentSceneTransition(
                                        action.getGUIParameter(TRANSITIONNAME_COMBO, "currentText")))
     connection_manager.sendMessage(account_id,
-                                   requests.setTransitionDuration(
+                                   requests.setCurrentSceneTransitionDuration(
                                        action.getGUIParameter(DURATION_SPIN, "currentText")))
 
 def transitionToProgram(account_id):
     connection_manager.sendMessage(account_id,
-                                   requests.transitionToProgram())
+                                   requests.triggerStudioModeTransition())
 
 def onActionExecute(action):
     index = action.getGUIParameter(ACCOUNT_COMBO, "currentIndex")

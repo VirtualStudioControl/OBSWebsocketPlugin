@@ -1,5 +1,5 @@
-from libwsctrl.protocols.obs_ws4 import obs_websocket_protocol as requests
-from libwsctrl.protocols.obs_ws4 import obs_websocket_events as events
+from libwsctrl.protocols.obs_ws5 import requests
+from libwsctrl.protocols.obs_ws5 import events
 from libwsctrl.structs.callback import Callback
 
 from obswebsocketplugin.common.connection_manager import connection_manager
@@ -26,21 +26,21 @@ def onAppear(action):
 
 
 def initAccount(action, account_id):
-    connection_manager.sendMessage(account_id, requests.getSourcesList(),
+    connection_manager.sendMessage(account_id, requests.getInputList(),
                                    Callback(action.updateSources,
                                             currentSelection=action.getGUIParameter(SOURCENAME_COMBO, "currentText")))
 
-    connection_manager.addEventListener(account_id, events.EVENT_SOURCEFILTERVISIBILITYCHANGED, action.filterVisibilityChanged)
+    connection_manager.addEventListener(account_id, events.EVENT_SOURCEFILTERENABLESTATECHANGED, action.filterVisibilityChanged)
     source = action.getGUIParameter(SOURCENAME_COMBO, "currentText")
     if source is not None:
-        connection_manager.sendMessage(action.account_id, requests.getSourceFilters(source),
+        connection_manager.sendMessage(action.account_id, requests.getSourceFilterList(source),
                                        Callback(action.updateFilters,
                                                 currentSelection=action.getGUIParameter(FILTERNAME_COMBO,
                                                                                         "currentText")))
 
 
 def deinitAccount(action, account_id):
-    connection_manager.removeEventListener(account_id, events.EVENT_SOURCEFILTERVISIBILITYCHANGED, action.filterVisibilityChanged)
+    connection_manager.removeEventListener(account_id, events.EVENT_SOURCEFILTERENABLESTATECHANGED, action.filterVisibilityChanged)
 
 
 def onDisappear(action):
@@ -56,13 +56,13 @@ def onParamsChanged(action, parameters: dict):
     index = action.getGUIParameter(ACCOUNT_COMBO, "currentIndex")
     if index is not None:
         action.account_id = action.uuid_map[index]
-        connection_manager.sendMessage(action.account_id, requests.getSourcesList(),
+        connection_manager.sendMessage(action.account_id, requests.getInputList(),
                                        Callback(action.updateSources,
                                                 currentSelection=action.getGUIParameter(SOURCENAME_COMBO,
                                                                                         "currentText")))
         source = action.getGUIParameter(SOURCENAME_COMBO, "currentText")
         if source is not None:
-            connection_manager.sendMessage(action.account_id, requests.getSourceFilters(source),
+            connection_manager.sendMessage(action.account_id, requests.getSourceFilterList(source),
                                        Callback(action.updateFilters,
                                                 currentSelection=action.getGUIParameter(FILTERNAME_COMBO, "currentText")))
 
@@ -77,7 +77,7 @@ def onActionExecute(action):
     if index is not None:
         account_id = action.uuid_map[index]
         if action.filter is not None:
-            connection_manager.sendMessage(account_id, requests.setSourceFilterVisibility(action.getGUIParameter(SOURCENAME_COMBO, "currentText"),
+            connection_manager.sendMessage(account_id, requests.setSourceFilterEnabled(action.getGUIParameter(SOURCENAME_COMBO, "currentText"),
                                                                                       action.filter.name, not action.filter.enabled))
         else:
             logger.warning("Filter {} is None !".format(action.getGUIParameter(FILTERNAME_COMBO, "currentText")))

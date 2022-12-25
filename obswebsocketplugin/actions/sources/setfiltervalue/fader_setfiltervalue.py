@@ -1,8 +1,6 @@
 from typing import Dict, Optional
 
-from libwsctrl.structs.callback import Callback
 from obswebsocketplugin.actions.sources.setfiltervalue import setfiltervalue
-from obswebsocketplugin.actions.sources.setfiltervalue.setfiltervalue import FILTER_VALUE_COMBO
 from obswebsocketplugin.common.structs.obs_filter import OBSFilter
 from obswebsocketplugin.common.uitools import setAccountComboBox
 from virtualstudio.common.structs.action.fader_action import FaderAction
@@ -42,6 +40,7 @@ class FaderSetFilterValue(FaderAction):
         setfiltervalue.onParamsChanged(self, parameters)
 
     def updateFilterValues(self):
+        self.logger.info("Called updateFilterValues")
         setfiltervalue.updateFilterValues(self)
 
     def updateHardware(self):

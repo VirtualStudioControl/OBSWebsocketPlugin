@@ -1,5 +1,5 @@
-from libwsctrl.protocols.obs_ws4 import obs_websocket_protocol as requests
-from libwsctrl.protocols.obs_ws4 import obs_websocket_events as events
+from libwsctrl.protocols.obs_ws5 import requests
+from libwsctrl.protocols.obs_ws5 import events
 from libwsctrl.structs.callback import Callback
 
 from obswebsocketplugin.common.connection_manager import connection_manager
@@ -23,14 +23,14 @@ def onAppear(action):
 
 
 def initAccount(action, account_id):
-    connection_manager.sendMessage(account_id, requests.getSourcesList(),
+    connection_manager.sendMessage(account_id, requests.getInputList(),
                                    Callback(action.updateSources,
                                             currentSelection=action.getGUIParameter(SOURCENAME_COMBO, "currentText")))
 
-    connection_manager.addEventListener(account_id, events.EVENT_SOURCEMUTESTATECHANGED, action.muteStateChangedCB)
+    connection_manager.addEventListener(account_id, events.EVENT_INPUTMUTESTATECHANGED, action.muteStateChangedCB)
     source = action.getGUIParameter(SOURCENAME_COMBO, "currentText")
     if source is not None:
-        connection_manager.sendMessage(account_id, requests.getMute(source),
+        connection_manager.sendMessage(account_id, requests.getInputMute(source),
                                    Callback(action.setMuteState))
 
 
@@ -44,20 +44,20 @@ def onDisappear(action):
 
 
 def deinitAccount(action, account_id):
-    connection_manager.removeEventListener(account_id, events.EVENT_SOURCEMUTESTATECHANGED, action.muteStateChangedCB)
+    connection_manager.removeEventListener(account_id, events.EVENT_INPUTMUTESTATECHANGED, action.muteStateChangedCB)
 
 
 def onParamsChanged(action, parameters: dict):
     index = action.getGUIParameter(ACCOUNT_COMBO, "currentIndex")
     if index is not None:
         action.account_id = action.uuid_map[index]
-        connection_manager.sendMessage(action.account_id, requests.getSourcesList(),
+        connection_manager.sendMessage(action.account_id, requests.getInputList(),
                                        Callback(action.updateSources,
                                                 currentSelection=action.getGUIParameter(SOURCENAME_COMBO,
                                                                                         "currentText")))
         source = action.getGUIParameter(SOURCENAME_COMBO, "currentText")
         if source is not None:
-            connection_manager.sendMessage(action.account_id, requests.getMute(source),
+            connection_manager.sendMessage(action.account_id, requests.getInputMute(source),
                                        Callback(action.setMuteState))
 
 
@@ -66,5 +66,5 @@ def onActionExecute(action):
     if index is not None:
         account_id = action.uuid_map[index]
         connection_manager.sendMessage(account_id,
-                                       requests.setMute(action.getGUIParameter(SOURCENAME_COMBO, "currentText"),
+                                       requests.setInputMute(action.getGUIParameter(SOURCENAME_COMBO, "currentText"),
                                                         not action.isMute))

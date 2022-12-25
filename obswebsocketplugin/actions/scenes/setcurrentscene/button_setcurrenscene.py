@@ -1,4 +1,5 @@
 from libwsctrl.protocols.obs_ws5 import requests
+from libwsctrl.protocols.obs_ws5.tools.messagetools import checkError, innerData
 from libwsctrl.structs.callback import Callback
 from obswebsocketplugin.common.connection_manager import connection_manager
 from obswebsocketplugin.common.uitools import ensureAccountComboBox, setAccountComboBox
@@ -17,7 +18,7 @@ class ButtonSetCurrentSceneAction(ButtonAction):
         self.sceneSwitchCB = Callback(self.onSceneChanged)
         self.previewSwitchCB = Callback(self.onScenePreviewChanged)
         self.studioModeChangedCB = Callback(self.onStudioModeChanged)
-
+        self.account_id = None
         self.uuid_map = []
 
     def onAppear(self):
@@ -49,7 +50,7 @@ class ButtonSetCurrentSceneAction(ButtonAction):
                 setcurrentscene.initAccount(self, self.account_id)
 
     def updateScenes(self, msg, currentSelection: str = ""):
-        if msg['status'] != 'ok':
+        if not checkError(msg, self.logger):
             self.logger.error("Failed to retrieve scene list !" + str(msg))
             return
 
@@ -57,9 +58,9 @@ class ButtonSetCurrentSceneAction(ButtonAction):
         if currentSelection is not None:
             sceneNames.append(currentSelection)
 
-        for scene in msg['scenes']:
-            if scene['name'] not in sceneNames:
-                sceneNames.append(scene['name'])
+        for scene in innerData(msg)['scenes']:
+            if scene['sceneName'] not in sceneNames:
+                sceneNames.append(scene['sceneName'])
 
         if self.getGUIParameter(SCENENAME_COMBO, "currentText") not in sceneNames and len(sceneNames) > 0:
             self.setGUIParameter(SCENENAME_COMBO, "currentIndex", 0, silent=True)
@@ -69,41 +70,40 @@ class ButtonSetCurrentSceneAction(ButtonAction):
         self.setGUIParameter(SCENENAME_COMBO, "itemTexts", sceneNames)
 
     def setCurrentSceneState(self, msg):
-        if msg['name'] == self.getGUIParameter(SCENENAME_COMBO, "currentText"):
+        if not checkError(msg, self.logger):
+            self.logger.error("Failed to retrieve scene state !" + str(msg))
+            return
+        if innerData(msg)['currentProgramSceneName'] == self.getGUIParameter(SCENENAME_COMBO, "currentText"):
             self.setState(self.getState() | STATE_PROGRAM)
         else:
             self.setState(self.getState() & ~STATE_PROGRAM)
 
     def setPreviewSceneState(self, msg):
-        if msg['status'] == 'error':
-            error = "Unknown Error"
-            if 'error' in msg:
-                error = msg['error']
-            self.logger.error(error)
+        if not checkError(msg, self.logger):
             return
 
-        if msg['name'] == self.getGUIParameter(SCENENAME_COMBO, "currentText"):
+        if innerData(msg)['currentPreviewSceneName'] == self.getGUIParameter(SCENENAME_COMBO, "currentText"):
             self.setState(self.getState() | STATE_PREVIEW)
         else:
             self.setState(self.getState() & ~STATE_PREVIEW)
 
     def onStudioModeChanged(self, msg):
-        if not msg['new-state']:
+        if not innerData(msg)['studioModeEnabled']:
             self.setState(self.getState() & ~STATE_PREVIEW)
         else:
             index = self.getGUIParameter(ACCOUNT_COMBO, "currentIndex")
             if index is not None:
                 account_id = self.uuid_map[index]
-                connection_manager.sendMessage(account_id, requests.getPreviewScene(), Callback(self.setPreviewSceneState))
+                connection_manager.sendMessage(account_id, requests.getCurrentPreviewScene(), Callback(self.setPreviewSceneState))
 
     def onSceneChanged(self, msg):
-        if msg['scene-name'] == self.getGUIParameter(SCENENAME_COMBO, "currentText"):
+        if innerData(msg)['sceneName'] == self.getGUIParameter(SCENENAME_COMBO, "currentText"):
             self.setState(self.getState() | STATE_PROGRAM)
         else:
             self.setState(self.getState() & ~STATE_PROGRAM)
 
     def onScenePreviewChanged(self, msg):
-        if msg['scene-name'] == self.getGUIParameter(SCENENAME_COMBO, "currentText"):
+        if innerData(msg)['sceneName'] == self.getGUIParameter(SCENENAME_COMBO, "currentText"):
             self.setState(self.getState() | STATE_PREVIEW)
         else:
             self.setState(self.getState() & ~STATE_PREVIEW)

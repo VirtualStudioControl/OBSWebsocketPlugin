@@ -40,6 +40,7 @@ class RotarySetFilterValue(RotaryEncoderAction):
         setfiltervalue.onParamsChanged(self, parameters)
 
     def updateFilterValues(self):
+        self.logger.info("Called updateFilterValues")
         if self.filter is None:
             return
         setfiltervalue.updateFilterValues(self)

@@ -1,5 +1,5 @@
-from libwsctrl.protocols.obs_ws4 import obs_websocket_protocol as requests
-from libwsctrl.protocols.obs_ws4 import obs_websocket_events as events
+from libwsctrl.protocols.obs_ws5 import requests
+from libwsctrl.protocols.obs_ws5 import events
 from libwsctrl.structs.callback import Callback
 
 from obswebsocketplugin.common.connection_manager import connection_manager
@@ -24,16 +24,15 @@ def onAppear(action):
 
 
 def initAccount(action, account_id):
+    connection_manager.addEventListener(account_id, events.EVENT_CURRENTPROGRAMSCENECHANGED, action.sceneSwitchCB)
+    connection_manager.addEventListener(account_id, events.EVENT_CURRENTPREVIEWSCENECHANGED, action.previewSwitchCB)
+    connection_manager.addEventListener(account_id, events.EVENT_STUDIOMODESTATECHANGED, action.studioModeChangedCB)
+
     connection_manager.sendMessage(account_id, requests.getSceneList(),
                                    Callback(action.updateScenes,
                                             currentSelection=action.getGUIParameter(SCENENAME_COMBO, "currentText")))
-
-    connection_manager.addEventListener(account_id, events.EVENT_SWITCHSCENES, action.sceneSwitchCB)
-    connection_manager.addEventListener(account_id, events.EVENT_PREVIEWSCENECHANGED, action.previewSwitchCB)
-    connection_manager.addEventListener(account_id, events.EVENT_STUDIOMODESWITCHED, action.studioModeChangedCB)
-
-    connection_manager.sendMessage(account_id, requests.getCurrentScene(), Callback(action.setCurrentSceneState))
-    connection_manager.sendMessage(account_id, requests.getPreviewScene(), Callback(action.setPreviewSceneState))
+    connection_manager.sendMessage(account_id, requests.getCurrentProgramScene(), Callback(action.setCurrentSceneState))
+    connection_manager.sendMessage(account_id, requests.getCurrentPreviewScene(), Callback(action.setPreviewSceneState))
 
 
 def onDisappear(action):
@@ -46,9 +45,9 @@ def onDisappear(action):
 
 
 def deinitAccount(action, account_id):
-    connection_manager.removeEventListener(account_id, events.EVENT_SWITCHSCENES, action.sceneSwitchCB)
-    connection_manager.removeEventListener(account_id, events.EVENT_PREVIEWSCENECHANGED, action.previewSwitchCB)
-    connection_manager.removeEventListener(account_id, events.EVENT_STUDIOMODESWITCHED, action.studioModeChangedCB)
+    connection_manager.removeEventListener(account_id, events.EVENT_CURRENTPROGRAMSCENECHANGED, action.sceneSwitchCB)
+    connection_manager.removeEventListener(account_id, events.EVENT_CURRENTPREVIEWSCENECHANGED, action.previewSwitchCB)
+    connection_manager.removeEventListener(account_id, events.EVENT_STUDIOMODESTATECHANGED, action.studioModeChangedCB)
 
 
 def onParamsChanged(action, parameters: dict):
@@ -65,12 +64,12 @@ def onActionExecute(action):
         if connection_manager.isInStudioMode(account_id):
             if action.getGUIParameter(STUDIOMODE_COMBO, "currentIndex") == 0:
                 connection_manager.sendMessage(account_id,
-                                               requests.setCurrentScene(
+                                               requests.setCurrentProgramScene(
                                                    action.getGUIParameter(SCENENAME_COMBO, "currentText")))
             else:
                 connection_manager.sendMessage(account_id,
-                                               requests.setPreviewScene(
+                                               requests.setCurrentPreviewScene(
                                                    action.getGUIParameter(SCENENAME_COMBO, "currentText")))
         else:
             connection_manager.sendMessage(account_id,
-                                       requests.setCurrentScene(action.getGUIParameter(SCENENAME_COMBO, "currentText")))
+                                       requests.setCurrentProgramScene(action.getGUIParameter(SCENENAME_COMBO, "currentText")))

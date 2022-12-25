@@ -1,3 +1,4 @@
+from libwsctrl.protocols.obs_ws5.tools.messagetools import checkError, innerData
 from libwsctrl.structs.callback import Callback
 from obswebsocketplugin.common.connection_manager import connection_manager
 from obswebsocketplugin.common.filter_data_manager import filter_data_manager
@@ -8,8 +9,7 @@ from virtualstudio.common.account_manager import account_manager
 from virtualstudio.common.logging import logengine
 from virtualstudio.common.structs.action.abstract_action import AbstractAction
 
-from libwsctrl.protocols.obs_ws4 import obs_websocket_protocol as requests
-from libwsctrl.protocols.obs_ws4 import obs_websocket_events as events
+from libwsctrl.protocols.obs_ws5 import requests
 
 logger = logengine.getLogger()
 
@@ -68,18 +68,19 @@ def setActivePage(action: AbstractAction, control_page=PAGE_SLIDER, value_type=P
 
 #region Update UI Elements
 
-def updateSources(action, msg, currentSelection: str = ""):
-    if msg['status'] != 'ok':
-        action.logger.error("Failed to retrieve scene list !" + str(msg))
+def updateSources(action, msg, currentSelection: str = None):
+    # msg = getInputList
+    if not checkError(msg, action.logger):
+        action.logger.error("Failed to retrieve input list !" + str(msg))
         return
 
     sourceNames = []
     if currentSelection is not None:
         sourceNames.append(currentSelection)
 
-    for source in msg['sources']:
-        if source['name'] not in sourceNames:
-            sourceNames.append(source['name'])
+    for source in innerData(msg)['inputs']:
+        if source['inputName'] not in sourceNames:
+            sourceNames.append(source['inputName'])
 
     if action.getGUIParameter(SOURCE_NAME_COMBO, "currentText") not in sourceNames and len(sourceNames) > 0:
         action.setGUIParameter(SOURCE_NAME_COMBO, "currentIndex", 0, silent=True)
@@ -88,14 +89,15 @@ def updateSources(action, msg, currentSelection: str = ""):
         action.setGUIParameter(SOURCE_NAME_COMBO, "currentIndex", sourceNames.index(action.getGUIParameter(SOURCE_NAME_COMBO, "currentText")), silent=True)
     action.setGUIParameter(SOURCE_NAME_COMBO, "itemTexts", sourceNames)
 
-    connection_manager.sendMessage(action.account_id, requests.getSourceFilters(currentSelection),
+    connection_manager.sendMessage(action.account_id, requests.getSourceFilterList(currentSelection),
                                    Callback(updateFilters,
                                             currentSelection=action.getGUIParameter(FILTER_NAME_COMBO,
                                                                                     "currentText"), action=action))
 
 
 def updateFilters(action, msg, currentSelection: str = ""):
-    if msg['status'] != 'ok':
+    # msg = getSourceFilterList()
+    if not checkError(msg, logger):
         logger.error("Failed to retrieve filter list !" + str(msg))
         return
 
@@ -103,12 +105,12 @@ def updateFilters(action, msg, currentSelection: str = ""):
     if currentSelection is not None:
         filterNames.append(currentSelection)
 
-    for filter in msg['filters']:
-        if filter['name'] not in filterNames:
-            filterNames.append(filter['name'])
+    for filter in innerData(msg)['filters']:
+        if filter['filterName'] not in filterNames:
+            filterNames.append(filter['filterName'])
 
-        action.filters[filter['name']] = OBSFilter(enabled=filter['enabled'], name=filter['name'],
-                                                 type=filter['type'], settings=filter['settings'])
+        action.filters[filter['filterName']] = OBSFilter(enabled=filter['filterEnabled'], name=filter['filterName'],
+                                                 type=filter['filterKind'], settings=filter['filterSettings'])
 
     if action.getGUIParameter(FILTER_NAME_COMBO, "currentText") not in filterNames and len(filterNames) > 0:
         action.setGUIParameter(FILTER_NAME_COMBO, "currentIndex", 0, silent=True)
@@ -191,7 +193,7 @@ def onLoad(action):
 
 def updateFilterValues(action):
     connection_manager.sendMessage(action.account_id,
-                                   requests.getSourceFilters(action.getGUIParameter(SOURCE_NAME_COMBO, "currentText")),
+                                   requests.getSourceFilterList(action.getGUIParameter(SOURCE_NAME_COMBO, "currentText")),
                                    Callback(updateFilters,
                                             currentSelection=action.getGUIParameter(FILTER_NAME_COMBO,
                                                                                     "currentText"), action=action))
@@ -200,12 +202,12 @@ def updateFilterValues(action):
 def updateUI(action):
 
     if action.getGUIParameter(ACCOUNT_COMBO, "currentText") != action.prevuivals[ACCOUNT_COMBO]:
-        connection_manager.sendMessage(action.account_id, requests.getSourcesList(),
+        connection_manager.sendMessage(action.account_id, requests.getInputList(),
                                        Callback(updateSources,
                                                 currentSelection=action.getGUIParameter(SOURCE_NAME_COMBO,
                                                                                         "currentText"), action=action))
     elif action.getGUIParameter(SOURCE_NAME_COMBO, "currentText") != action.prevuivals[SOURCE_NAME_COMBO]:
-        connection_manager.sendMessage(action.account_id, requests.getSourceFilters(action.getGUIParameter(SOURCE_NAME_COMBO, "currentText")),
+        connection_manager.sendMessage(action.account_id, requests.getSourceFilterList(action.getGUIParameter(SOURCE_NAME_COMBO, "currentText")),
                                        Callback(updateFilters,
                                                 currentSelection=action.getGUIParameter(FILTER_NAME_COMBO,
                                                                                         "currentText"), action=action))
@@ -244,7 +246,7 @@ def onParamsChanged(action, parameters):
 
 
 def initAccount(action, account_id):
-    connection_manager.sendMessage(account_id, requests.getSourcesList(),
+    connection_manager.sendMessage(account_id, requests.getInputList(),
                                    Callback(updateSources,
                                             currentSelection=action.getGUIParameter(SOURCE_NAME_COMBO, "currentText"), action=action))
 

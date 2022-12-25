@@ -1,5 +1,10 @@
-from libwsctrl.protocols.obs_ws4 import obs_websocket_protocol as requests
-from libwsctrl.protocols.obs_ws4 import obs_websocket_events as events
+import asyncio
+from asyncio import Semaphore
+from typing import Callable
+
+from libwsctrl.protocols.obs_ws5 import requests
+from libwsctrl.protocols.obs_ws5 import events
+from libwsctrl.protocols.obs_ws5.tools.messagetools import checkError, innerData
 from libwsctrl.structs.callback import Callback
 
 from obswebsocketplugin.common.connection_manager import connection_manager
@@ -38,15 +43,19 @@ def onAppear(action):
     if index is not None:
         action.account_id = action.uuid_map[index]
         initAccount(action, action.account_id)
-        updateState(action)
+        source = action.getGUIParameter(SOURCENAME_COMBO, "currentText")
+        if source is not None:
+            connection_manager.sendMessage(action.account_id, requests.getSceneList(),
+                                           Callback(iterateOverAllScenes, action=action,
+                                                    callable=processSceneListByName))
 
 
 def initAccount(action, account_id):
-    connection_manager.sendMessage(account_id, requests.getSourcesList(),
+    connection_manager.sendMessage(account_id, requests.getInputList(),
                                    Callback(action.updateSources,
                                             currentSelection=action.getGUIParameter(SOURCENAME_COMBO, "currentText")))
 
-    connection_manager.addEventListener(account_id, events.EVENT_SCENEITEMVISIBILITYCHANGED,
+    connection_manager.addEventListener(account_id, events.EVENT_SCENEITEMENABLESTATECHANGED,
                                         action.sceneItemVisibilityChanged)
     source = action.getGUIParameter(SOURCENAME_COMBO, "currentText")
     if source is not None:
@@ -65,7 +74,7 @@ def onDisappear(action):
 
 
 def deinitAccount(action, account_id):
-    connection_manager.removeEventListener(account_id, events.EVENT_SCENEITEMVISIBILITYCHANGED,
+    connection_manager.removeEventListener(account_id, events.EVENT_SCENEITEMENABLESTATECHANGED,
                                            action.sceneItemVisibilityChanged)
 
 
@@ -73,7 +82,7 @@ def onParamsChanged(action, parameters: dict):
     index = action.getGUIParameter(ACCOUNT_COMBO, "currentIndex")
     if index is not None and index < len(action.uuid_map):
         action.account_id = action.uuid_map[index]
-        connection_manager.sendMessage(action.account_id, requests.getSourcesList(),
+        connection_manager.sendMessage(action.account_id, requests.getInputList(),
                                        Callback(action.updateSources,
                                                 currentSelection=action.getGUIParameter(SOURCENAME_COMBO,
                                                                                         "currentText")))
@@ -89,39 +98,82 @@ def onParamsChanged(action, parameters: dict):
 
         action.group = group
         if source is not None:
-            updateState(action)
+            connection_manager.sendMessage(action.account_id, requests.getSceneList(),
+                                       Callback(iterateOverAllScenes, action=action, callable=processSceneListByName))
+
+def updateState(action, sceneName, itemID, isEnabled):
+    connection_manager.sendMessage(action.account_id, requests.getSceneList(), Callback(iterateOverAllScenes, action=action, callable=processSceneListByID,
+                                                                                        itemID=itemID, isEnabled=isEnabled))
+
+def iterateOverAllScenes(msg, action, callable: Callable, **kwargs):
+    asyncio.create_task(iterateOverAllScenesAsync(msg, action, callable, **kwargs))
+async def iterateOverAllScenesAsync(msg, action, callable: Callable, **kwargs):
+    # msg = getSceneList()
+    data = innerData(msg)
+    enforce_consistency = action.getGUIParameter(CONSISTENCY_CHECK, "checked")
+
+    state_checked = {}
+
+    sem = Semaphore()
+    for scene in data["scenes"]:
+        name = scene["sceneName"]
+        callback = Callback(callable, action=action, semaphore=sem, result=state_checked, sceneName=name, **kwargs)
+
+        await sem.acquire()
+        connection_manager.sendMessage(action.account_id, requests.getSceneItemList(sceneName=name), callback)
+
+    await sem.acquire()
+    sem.release()
+
+    state_off = 0
+    state_on = 0
+
+    for sceneName in state_checked:
+        if state_checked[sceneName]:
+            state_on += 1
+        else:
+            state_off += 1
+
+    state = state_on >= state_off
+    isInconsistent = (state_off > 0 and state_on > 0)
 
 
-def updateState(action, newstate=None):
-    connection_manager.sendMessage(action.account_id, requests.getSceneList(), Callback(processSceneList, action=action, newstate=newstate))
+    if enforce_consistency:
+        sendStateToOBS(action, state)
+        isInconsistent = False
 
-def processSceneList(msg, action, newstate=None):
-    if msg['status'] != 'ok':
+    setState(action, state, isInconsistent)
+
+def processSceneListByName(msg, action, result, sceneName, semaphore: Semaphore=None):
+    # msg = getSceneItemList
+    if not checkError(msg, logger):
         logger.error("Failed to retrieve scene list !" + str(msg))
         return
 
-    enforce_consistency = action.getGUIParameter(CONSISTENCY_CHECK, "checked")
     sourceName = action.getGUIParameter(SOURCENAME_COMBO, "currentText")
 
-    scenes = msg['scenes']
+    for source in innerData(msg)['sceneItems']:
+        if source[SCENE_ITEM_NAME] == sourceName:
+                result[sceneName] = source[SCENE_ITEM_RENDER]
 
-    state_checked = newstate
-    state_inconsistent = False
+    if semaphore != None:
+        semaphore.release()
 
-    for scene in scenes:
-        for source in scene['sources']:
-            if source[SCENE_ITEM_NAME] == sourceName:
-                if state_checked is None:
-                    state_checked = source[SCENE_ITEM_RENDER]
-                if state_checked != source[SCENE_ITEM_RENDER]:
-                    state_inconsistent = True
 
-    if enforce_consistency:
-        sendStateToOBS(state_checked)
-        state_inconsistent = False
+def processSceneListByID(msg, action, sceneName, itemID, isEnabled, result, semaphore: Semaphore=None):
+    # msg = getSceneItemList
+    if not checkError(msg, logger):
+        logger.error("Failed to retrieve scene list !" + str(msg))
+        return
 
-    setState(action, state_checked, state_inconsistent)
+    sourceName = action.getGUIParameter(SOURCENAME_COMBO, "currentText")
 
+    for source in innerData(msg)['sceneItems']:
+        if source[SCENE_ITEM_ID] == itemID and source[SCENE_ITEM_NAME] == sourceName:
+            result[sceneName] = source[SCENE_ITEM_RENDER]
+
+    if semaphore != None:
+        semaphore.release()
 
 def setState(action, state_checked, state_inconsistent):
     if state_inconsistent:
@@ -139,25 +191,21 @@ def sendStateToOBS(action, render=False):
     if index is not None:
         account_id = action.uuid_map[index]
         connection_manager.sendMessage(account_id, requests.getSceneList(), Callback(sendSourceState, action=action,
-                                                                                     account_id=account_id))
+                                                                                     account_id=account_id, render=render))
 
 
 def sendSourceState(action, account_id, msg, render=False):
-    if msg['status'] != 'ok':
+    # msg = getSceneList
+
+    if not checkError(msg, logger):
         logger.error("Failed to retrieve scene list !" + str(msg))
         return
 
-    sourceName = action.getGUIParameter(SOURCENAME_COMBO, "currentText")
-
-    scenes = msg['scenes']
+    scenes = innerData(msg)['scenes']
 
     for scene in scenes:
-        for source in scene['sources']:
-            if source[SCENE_ITEM_NAME] == sourceName:
-                connection_manager.sendMessage(account_id, requests.setSceneItemRender(scene_name=scene['name'],
-                                                                                       source=sourceName,
-                                                                                       render=render))
-
+        connection_manager.sendMessage(account_id, requests.getSceneItemList(scene["sceneName"]),
+                                       Callback(_sendSourceStateScene, action=action, account_id=account_id, sceneName=scene["sceneName"], render=render))
 
 def onActionExecute(action):
     index = action.getGUIParameter(ACCOUNT_COMBO, "currentIndex")
@@ -168,7 +216,8 @@ def onActionExecute(action):
 
 
 def sendMessageRequests(action, account_id, msg):
-    if msg['status'] != 'ok':
+    #msg = getSceneList
+    if not checkError(msg, logger):
         logger.error("Failed to retrieve scene list !" + str(msg))
         return
 
@@ -181,7 +230,7 @@ def sendMessageRequests(action, account_id, msg):
 
     sourceName = action.getGUIParameter(SOURCENAME_COMBO, "currentText")
 
-    scenes = msg['scenes']
+    scenes = innerData(msg)['scenes']
 
     action.render = not action.render
 
@@ -193,8 +242,18 @@ def sendMessageRequests(action, account_id, msg):
         action.render = True
 
     for scene in scenes:
-        for source in scene['sources']:
-            if source[SCENE_ITEM_NAME] == sourceName:
-                connection_manager.sendMessage(account_id, requests.setSceneItemRender(scene_name=scene['name'],
-                                                                                       source=sourceName,
-                                                                                       render=action.render))
+        connection_manager.sendMessage(account_id, requests.getSceneItemList(scene["sceneName"]),
+                                       Callback(_sendSourceStateScene, action=action, account_id=account_id, sceneName=scene["sceneName"], render=action.render))
+
+def _sendSourceStateScene(action, account_id, msg, sceneName, render=False):
+    # msg = getSceneItemList
+    if not checkError(msg, logger):
+        logger.error("Failed to retrieve scene item list !" + str(msg))
+        return
+
+    sourceName = action.getGUIParameter(SOURCENAME_COMBO, "currentText")
+    for source in innerData(msg)['sceneItems']:
+        if source[SCENE_ITEM_NAME] == sourceName:
+            connection_manager.sendMessage(account_id, requests.setSceneItemEnabled(sceneName=sceneName,
+                                                                                    sceneItemId=source["sceneItemId"],
+                                                                                    sceneItemEnabled=render))

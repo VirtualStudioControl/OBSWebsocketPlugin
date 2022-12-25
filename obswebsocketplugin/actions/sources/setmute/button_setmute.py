@@ -1,3 +1,4 @@
+from libwsctrl.protocols.obs_ws5.tools.messagetools import checkError, innerData
 from libwsctrl.structs.callback import Callback
 from obswebsocketplugin.actions.sources.setmute import setmute
 from obswebsocketplugin.actions.sources.setmute.setmute import ACCOUNT_COMBO, SOURCENAME_COMBO, STATE_MUTED, STATE_ACTIVE
@@ -12,7 +13,7 @@ class ButtonSetMuteAction(ButtonAction):
     def onLoad(self):
         self.muteStateChangedCB = Callback(self.onMuteStateChanged)
         self.uuid_map = []
-
+        self.account_id = None
         self.isMute = False
 
     def onAppear(self):
@@ -44,17 +45,18 @@ class ButtonSetMuteAction(ButtonAction):
                 setmute.initAccount(self, self.account_id)
 
     def updateSources(self, msg, currentSelection: str = ""):
-        if msg['status'] != 'ok':
-            self.logger.error("Failed to retrieve scene list !" + str(msg))
+        # msg = getInputList
+        if not checkError(msg, self.logger):
+            self.logger.error("Failed to retrieve input list !" + str(msg))
             return
 
         sourceNames = []
         if currentSelection is not None:
             sourceNames.append(currentSelection)
 
-        for source in msg['sources']:
-            if source['name'] not in sourceNames:
-                sourceNames.append(source['name'])
+        for source in innerData(msg)['inputs']:
+            if source['inputName'] not in sourceNames:
+                sourceNames.append(source['inputName'])
 
         if self.getGUIParameter(SOURCENAME_COMBO, "currentText") not in sourceNames and len(sourceNames) > 0:
             self.setGUIParameter(SOURCENAME_COMBO, "currentIndex", 0, silent=True)
@@ -64,16 +66,16 @@ class ButtonSetMuteAction(ButtonAction):
         self.setGUIParameter(SOURCENAME_COMBO, "itemTexts", sourceNames)
 
     def setMuteState(self, msg):
-        if msg['status'] != 'ok':
+        # msg = getInputMute
+        if not checkError(msg, self.logger):
             self.logger.error("Failed to retrieve mute state !" + str(msg))
             return
-        if msg['name'] == self.getGUIParameter(SOURCENAME_COMBO, "currentText"):
-            self.isMute = msg['muted']
-            self.updateState()
+        self.isMute = innerData(msg)['inputMuted']
+        self.updateState()
 
     def onMuteStateChanged(self, msg):
-        if msg['sourceName'] == self.getGUIParameter(SOURCENAME_COMBO, "currentText"):
-            self.isMute = msg['muted']
+        if innerData(msg)['inputName'] == self.getGUIParameter(SOURCENAME_COMBO, "currentText"):
+            self.isMute = innerData(msg)['inputMuted']
             self.updateState()
 
     def updateState(self):
