@@ -42,24 +42,33 @@ class ConnectionHandler(Thread):
         rcvLoop = None
         sendLoop = None
         self.isAuthenticated = False
+        address = self.generateServerAddress()
+        self.logger.info("Attempting to Connect to " + address)
         with self.clientLock:
             self.client = OBSWebsocketClient(self.generateServerAddress())
+            self.logger.info("Client created for " + address)
             try:
 
                 rcvLoop = self.client.recieveLoop()
                 sendLoop = self.client.sendLoop()
+                self.logger.info("Connection Attempt starting: " + address)
                 await self.client.connect(password=self.accountData.password,
                                           onAuthenticated=Callback(self.onAuthenticated))
+                self.logger.info("Connection Attempt Successfull: " + address)
 
             except ClientConnectorError:
                 self.logger.error("Error connecting to Host: {}".format(self.generateServerAddress()))
             except ClientError:
                 self.logger.error("Client Error Connecting to Host: {}".format(self.generateServerAddress()))
-
+            self.logger.info("Leaving client lock for: " + address)
 
         if rcvLoop is not None or sendLoop is not None:
+            self.logger.info("Awaiting loops to close: " + address)
             await asyncio.gather(rcvLoop, sendLoop, return_exceptions=True)
+            self.logger.info("Loops closed: " + address)
+        self.logger.info("Awaiting Client closed: " + address)
         await self.client.close()
+        self.logger.info("Client closed: " + address)
         self.isAuthenticated = False
         self.logger.debug("Connection Closed !")
 
