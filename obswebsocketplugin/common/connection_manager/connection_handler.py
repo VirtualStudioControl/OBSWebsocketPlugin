@@ -42,33 +42,24 @@ class ConnectionHandler(Thread):
         rcvLoop = None
         sendLoop = None
         self.isAuthenticated = False
-        address = self.generateServerAddress()
-        self.logger.info("Attempting to Connect to " + address)
         with self.clientLock:
             self.client = OBSWebsocketClient(self.generateServerAddress())
-            self.logger.info("Client created for " + address)
             try:
 
                 rcvLoop = self.client.recieveLoop()
                 sendLoop = self.client.sendLoop()
-                self.logger.info("Connection Attempt starting: " + address)
                 await self.client.connect(password=self.accountData.password,
                                           onAuthenticated=Callback(self.onAuthenticated))
-                self.logger.info("Connection Attempt Successfull: " + address)
 
             except ClientConnectorError:
                 self.logger.error("Error connecting to Host: {}".format(self.generateServerAddress()))
             except ClientError:
                 self.logger.error("Client Error Connecting to Host: {}".format(self.generateServerAddress()))
-            self.logger.info("Leaving client lock for: " + address)
+
 
         if rcvLoop is not None or sendLoop is not None:
-            self.logger.info("Awaiting loops to close: " + address)
             await asyncio.gather(rcvLoop, sendLoop, return_exceptions=True)
-            self.logger.info("Loops closed: " + address)
-        self.logger.info("Awaiting Client closed: " + address)
         await self.client.close()
-        self.logger.info("Client closed: " + address)
         self.isAuthenticated = False
         self.logger.debug("Connection Closed !")
 
@@ -77,14 +68,14 @@ class ConnectionHandler(Thread):
 
     def onAuthenticated(self, msg):
         #if msg['status'] == 'ok':
-       # with self.clientLock:
-        self.client.addEventListener(events.EVENT_STUDIOMODESTATECHANGED, Callback(self.studioModeStatusChanged))
-        self.client.sendMessageJson(requests.getStudioModeEnabled(), Callback(self.setStudioModeStatus))
-        for args in self.eventQueue:
-            self.client.addEventListener(*args)
-        self.isAuthenticated = True
-        for args in self.sendQueue:
-            self.client.sendMessageJson(*args)
+        with self.clientLock:
+            self.client.addEventListener(events.EVENT_STUDIOMODESTATECHANGED, Callback(self.studioModeStatusChanged))
+            self.client.sendMessageJson(requests.getStudioModeEnabled(), Callback(self.setStudioModeStatus))
+            for args in self.eventQueue:
+                self.client.addEventListener(*args)
+            self.isAuthenticated = True
+            for args in self.sendQueue:
+                self.client.sendMessageJson(*args)
         #else:
         #    self.logger.error("Authentification Failed !")
         #    self.isAuthenticated = False
@@ -105,15 +96,16 @@ class ConnectionHandler(Thread):
         self._sendMsgInternal(data, callback)
 
     def _sendMsgInternal(self, data, callback=None):
-        #with self.clientLock:
-        self.client.sendMessageJson(data, callback)
+        with self.clientLock:
+            self.client.sendMessageJson(data, callback)
 
     def addEventListener(self, event, listener):
         if not (self.isConnected() and self.isAuthenticated):
             self.eventQueue.append((event, listener))
             return
-        #with self.clientLock:
-        self.client.addEventListener(event, listener)
+        with self.clientLock:
+            self.client.addEventListener(event, listener)
 
     def removeEventListener(self, event, listener):
-        return self.client.removeEventListener(event, listener)
+        with self.clientLock:
+            return self.client.removeEventListener(event, listener)
