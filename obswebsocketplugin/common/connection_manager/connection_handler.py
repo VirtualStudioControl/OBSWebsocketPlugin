@@ -68,14 +68,14 @@ class ConnectionHandler(Thread):
 
     def onAuthenticated(self, msg):
         #if msg['status'] == 'ok':
-        with self.clientLock:
-            self.client.addEventListener(events.EVENT_STUDIOMODESTATECHANGED, Callback(self.studioModeStatusChanged))
-            self.client.sendMessageJson(requests.getStudioModeEnabled(), Callback(self.setStudioModeStatus))
-            for args in self.eventQueue:
-                self.client.addEventListener(*args)
-            self.isAuthenticated = True
-            for args in self.sendQueue:
-                self.client.sendMessageJson(*args)
+       # with self.clientLock:
+        self.client.addEventListener(events.EVENT_STUDIOMODESTATECHANGED, Callback(self.studioModeStatusChanged))
+        self.client.sendMessageJson(requests.getStudioModeEnabled(), Callback(self.setStudioModeStatus))
+        for args in self.eventQueue:
+            self.client.addEventListener(*args)
+        self.isAuthenticated = True
+        for args in self.sendQueue:
+            self.client.sendMessageJson(*args)
         #else:
         #    self.logger.error("Authentification Failed !")
         #    self.isAuthenticated = False
@@ -96,16 +96,15 @@ class ConnectionHandler(Thread):
         self._sendMsgInternal(data, callback)
 
     def _sendMsgInternal(self, data, callback=None):
-        with self.clientLock:
-            self.client.sendMessageJson(data, callback)
+        #with self.clientLock:
+        self.client.sendMessageJson(data, callback)
 
     def addEventListener(self, event, listener):
         if not (self.isConnected() and self.isAuthenticated):
             self.eventQueue.append((event, listener))
             return
-        with self.clientLock:
-            self.client.addEventListener(event, listener)
+        #with self.clientLock:
+        self.client.addEventListener(event, listener)
 
     def removeEventListener(self, event, listener):
-        with self.clientLock:
-            return self.client.removeEventListener(event, listener)
+        return self.client.removeEventListener(event, listener)
